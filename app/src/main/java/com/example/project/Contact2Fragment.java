@@ -57,7 +57,6 @@ public class Contact2Fragment extends Fragment implements OnMapReadyCallback
     public RadioGroup radioGroup;
     public  RadioButton radioButton;
     public double lat,lon  ;
-    public int a=20;
 
     public Contact2Fragment()
     {
