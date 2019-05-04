@@ -1,12 +1,15 @@
 package com.example.project;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
 import android.support.design.widget.TextInputEditText;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -20,6 +23,7 @@ import android.widget.Button;
 import android.support.design.widget.BottomNavigationView;
 import android.support.design.widget.Snackbar;
 import android.support.design.widget.FloatingActionButton;
+
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -29,6 +33,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+
 import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -43,29 +48,38 @@ import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
+
+import com.google.firebase.FirebaseApiNotAvailableException;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.ChildEventListener;
+
 import java.util.Scanner;
 
 /**
  * A simple {@link Fragment} subclass.
  */
 
-public class Contact2Fragment extends Fragment implements OnMapReadyCallback
-{
-    public  GoogleMap mMap;
+public class Contact2Fragment extends Fragment implements OnMapReadyCallback {
+    public GoogleMap mMap;
     public RadioGroup radioGroup;
-    public  RadioButton radioButton;
-    public double lat,lon  ;
+    public RadioButton radioButton;
+    public Double  lat, lon;
+    public String level = "green";
+    FirebaseDatabase database = FirebaseDatabase.getInstance();
+    DatabaseReference myRef = database.getReference("marker");
 
-    public Contact2Fragment()
-    {
+
+    public Contact2Fragment() {
         // Required empty public constructor
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
-    {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         View v = inflater.inflate(R.layout.fragment_contact_map, container, false);
 
@@ -73,41 +87,27 @@ public class Contact2Fragment extends Fragment implements OnMapReadyCallback
     }
 
     @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
-    {
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
     }
 
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(this.getContext()));
+        if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
 
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.558581, 120.471984))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.554112, 120.471760))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)));
-
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.555232, 120.471720))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)));
-
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.556255, 120.471698))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.560212, 120.445500))
-                .title("道路顛簸")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)));
-
+            return;
+        }
+        mMap.setMyLocationEnabled(true);
         mMap.getUiSettings().setCompassEnabled(true);       // 左上角的指南針，要兩指旋轉才會出現
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(23.558581, 120.471984), 15));// 移動鏡頭,zoom放大地圖
 
-        //↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+
        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener()
        {
             @Override
@@ -123,7 +123,7 @@ public class Contact2Fragment extends Fragment implements OnMapReadyCallback
                 lat = point.latitude;
                 lon = point.longitude;
                 final EditText editText = (EditText) view.findViewById(R.id.input);
-
+                level = "green";
                 builder = new AlertDialog.Builder(mContext);
                 builder.setView(view);
                 String m_Text = editText.getText().toString();
@@ -135,14 +135,17 @@ public class Contact2Fragment extends Fragment implements OnMapReadyCallback
                         switch (checkedId){
                             case R.id.radioButton_Green:
                                 group.check(R.id.radioButton_Green);
+                                level = "green";
                                 marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
                                 break;
                             case R.id.radioButton_Yellow:
                                 group.check(R.id.radioButton_Yellow);
+                                level = "yellow";
                                 marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)) ;
                                 break;
                             case R.id.radioButton_Red:
                                 group.check(R.id.radioButton_Red);
+                                level = "red";
                                 marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)) ;
                                 break;
                         }
@@ -165,14 +168,23 @@ public class Contact2Fragment extends Fragment implements OnMapReadyCallback
                         RadioGroup rg = (RadioGroup)view.findViewById(R.id.RadioGroup);
                         String m_Text = editText.getText().toString();
 
+
                         if(m_Text.isEmpty())
-                            marker.title("未說明");
-                        else
-                            marker.title(m_Text);
+                            m_Text = "未說明";
+
+                        marker.title(m_Text);
 
                         mMap.addMarker(marker);
-                        Toast.makeText(Contact2Fragment.this.getContext(),"新增完成",Toast.LENGTH_SHORT).show();
 
+                        //store to database
+                        String id = myRef.push().getKey();
+                        myRef.child(id).child("lat").setValue(lat);
+                        myRef.child(id).child("lon").setValue(lon);
+                        myRef.child(id).child("title").setValue(m_Text);
+                        myRef.child(id).child("level").setValue(level);
+                        myRef.child(id).child("report_times").setValue(0);
+
+                        Toast.makeText(Contact2Fragment.this.getContext(),"新增成功",Toast.LENGTH_SHORT).show();
                         dialog.dismiss();
                     }
                 });
@@ -180,7 +192,9 @@ public class Contact2Fragment extends Fragment implements OnMapReadyCallback
                 alertDialog.setTitle("Describe the situation");
                 alertDialog.show();
             }
+
       });
-       //↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
     }
+
 }

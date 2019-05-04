@@ -12,9 +12,9 @@
     <string name="title_dashboard">Dashboard</string>
     <string name="title_notifications">Notifications</string>
     <string name="Level">Level</string>
-    <string name="Yellow">Yellow</string>
-    <string name="Red">Red</string>
-    <string name="Green">Green</string>
+    <string name="Yellow">道路有狀況，通過時請小心</string>
+    <string name="Red">路況危險，無法通行</string>
+    <string name="Green">道路有狀況，但不影響通行</string>
 
     <string name="title_update_location">記事儲存的位置</string>
     <string name="message_update_location">更新或清除儲存的位置資訊?</string>

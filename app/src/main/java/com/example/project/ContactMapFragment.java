@@ -151,7 +151,7 @@ public class ContactMapFragment extends Fragment implements OnMapReadyCallback {
         Location location;
 
         DatabaseReference readRef = myRef.child("marker");
-        readRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        readRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists())

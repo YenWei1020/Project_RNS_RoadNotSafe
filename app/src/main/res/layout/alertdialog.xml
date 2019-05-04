@@ -15,14 +15,16 @@
             android:layout_width="395dp"
             android:layout_height="wrap_content"
             app:counterEnabled="true"
-            app:counterMaxLength="100"
+            app:counterMaxLength="20"
             tools:layout_editor_absoluteX="8dp"
             tools:layout_editor_absoluteY="93dp">
 
             <android.support.design.widget.TextInputEditText
                 android:id="@+id/input"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="match_parent"
+                android:inputType="textMultiLine"
+                android:lines="5" />
         </android.support.design.widget.TextInputLayout>
 
         <TextView
@@ -30,7 +32,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/Level"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:maxLines="3"/>
 
         <RadioGroup
             android:id="@+id/RadioGroup"
@@ -42,18 +45,23 @@
                 android:id="@+id/radioButton_Green"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+
+                android:drawableLeft="@mipmap/green"
                 android:text="@string/Green" />
 
             <RadioButton
                 android:id="@+id/radioButton_Yellow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:drawableLeft="@mipmap/yellow"
                 android:text="@string/Yellow" />
 
             <RadioButton
                 android:id="@+id/radioButton_Red"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+
+                android:drawableLeft="@mipmap/red"
                 android:text="@string/Red" />
 
         </RadioGroup>
