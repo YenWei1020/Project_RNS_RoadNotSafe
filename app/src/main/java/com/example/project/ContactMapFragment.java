@@ -1,7 +1,10 @@
 package com.example.project;
 
+import java.util.HashMap;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.location.Criteria;
+import android.location.LocationListener;
 import android.nfc.Tag;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentManager;
@@ -19,8 +22,8 @@ import android.support.design.widget.Snackbar;
 import android.support.design.widget.FloatingActionButton;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -30,6 +33,12 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.ChildEventListener;
 
 import android.app.AlertDialog;
 import android.app.Service;
@@ -46,6 +55,8 @@ import android.widget.Toast;
 
 import java.util.Scanner;
 
+import static android.widget.Toast.LENGTH_SHORT;
+
 /**
  * A simple {@link Fragment} subclass.
  */
@@ -54,10 +65,14 @@ public class ContactMapFragment extends Fragment implements OnMapReadyCallback {
     GoogleMap mMap;
     double lat, lng;
 
-    private static final String TAG = "ContactMapFragment";
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1234;
-    private Boolean mLocationPermissionsGranted = false;
-    private FusedLocationProviderClient mFusedLocationProviderClient;
+    private ChildEventListener mChildEventListener;
+    FirebaseDatabase database = FirebaseDatabase.getInstance();
+    DatabaseReference myRef = database.getReference("marker");
+
+    private static final long MIN_TIME = 400;
+    private static final float MIN_DISTANCE = 1000;
+    private LocationManager locationManager;
+    private LocationListener locationListener;
 
     public ContactMapFragment() {
         // Required empty public constructor
@@ -77,38 +92,129 @@ public class ContactMapFragment extends Fragment implements OnMapReadyCallback {
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        locationManager = (LocationManager) this.getContext().getSystemService(Context.LOCATION_SERVICE);
+        locationListener = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+                CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 15);
+                mMap.animateCamera(cameraUpdate);
+                locationManager.removeUpdates((android.location.LocationListener) this);
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+
+            }
+
+            @Override
+            public void onProviderEnabled(String provider) {
+
+            }
+
+            @Override
+            public void onProviderDisabled(String provider) {
+
+            }
+        };
+        if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.INTERNET
+
+            }, 10);
+
+            return;
+        }
+        locationManager.requestLocationUpdates("gps", MIN_TIME, MIN_DISTANCE, locationListener);
+
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        /*    super.onRequestPermissionsResult(requestCode, permissions, grantResults);*/
+        switch (requestCode) {
+            case 10:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                    if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
 
+                        return;
+                    }
+                    locationManager.requestLocationUpdates("gps", MIN_TIME, MIN_DISTANCE, locationListener);
 
+        }
+    }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(this.getContext()));
+        Location location;
 
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.558581, 120.471984))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+        DatabaseReference readRef = myRef.child("marker");
+        readRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists())
+                {
+                    for (DataSnapshot keynode: dataSnapshot.getChildren()) {
+                        if (keynode.getValue() != null) {
+                            Double latitude = keynode.child("lat").getValue(Double.class);
+                            Double longitude = keynode.child("lon").getValue(Double.class);
+                            String title = keynode.child("title").getValue(String.class);
+                            String level = keynode.child("level").getValue(String.class);
 
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.554112, 120.471760))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)));
+                            LatLng latLng = new LatLng(latitude,longitude);
 
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.555232, 120.471720))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)));
+                            mMap.addMarker(new MarkerOptions().position(latLng).title(title).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+                        }
+                    }
+                }
+            }
 
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.556255, 120.471698))
-                .title("施工")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
 
-        mMap.addMarker(new MarkerOptions().position(new LatLng(23.560212, 120.445500))
-                .title("道路顛簸")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)));
+            }
+        });
+      /*  readRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                for (DataSnapshot keynode : dataSnapshot.getChildren()){
+                    MarkerInformation markerLocation = keynode.getValue(MarkerInformation.class);
+                    LatLng latLng = new LatLng(markerLocation.getLatitude(),markerLocation.getLongitude());
+                    String title = markerLocation.getTitle();
 
-        mMap.getUiSettings().setCompassEnabled(true);       // 旋轉指南針
-        mMap.getUiSettings().setMyLocationButtonEnabled(true);//定位icon
+                    double latitude = (double) keynode.child("lat").getValue(Double.class);
+                    double longitude = (double) keynode.child("lon").getValue(Double.class);
+                    String title = keynode.child("title").getValue(String.class);
+                    String level = keynode.child("level").getValue(String.class);
+
+                    LatLng latLng = new LatLng(latitude,longitude);
+
+                    mMap.addMarker(new MarkerOptions().position(latLng).title(title).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });*/
+
+        mMap.addMarker(new MarkerOptions().position(new LatLng(23.558289313350347,120.47178167849779)).title("test"));
+        mMap.getUiSettings().setCompassEnabled(true);
+        mMap.getUiSettings().setMyLocationButtonEnabled(true);
+        if (ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this.getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+            return;
+        }
+        mMap.setMyLocationEnabled(true);
+
+
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(23.558581, 120.471984), 15));// 移動鏡頭,zoom放大地圖
+
+
+
 
     }
 
